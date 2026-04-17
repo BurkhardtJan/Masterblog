@@ -37,7 +37,8 @@ class BlogPost:
             "id": new_id,
             "author": author,
             "title": title,
-            "content": content
+            "content": content,
+            "like": 0
         }
         self._posts.append(new_post)
         self._save_data()
@@ -64,16 +65,23 @@ class BlogPost:
         return None
 
     def change(self, post_id, author, title, content):
-        """Changes blog post with selected id."""
+        """Changes blog post with selected id.
+        Resets likes to 0."""
         changed_post = {
             "id": post_id,
             "author": author,
             "title": title,
-            "content": content
+            "content": content,
+            "likes": 0,
         }
-        print(post_id)
         post_index = self.fetch_post_position_by_id(post_id)
         self._posts[post_index] = changed_post
+        self._save_data()
+
+    def like(self, post_id):
+        """Updates like by one"""
+        post_index = self.fetch_post_position_by_id(post_id)
+        self._posts[post_index]["like"] += 1
         self._save_data()
 
 
@@ -123,6 +131,14 @@ def update(post_id):
     # Else, it's a GET request
     # So display the update.html page
     return render_template('update.html', post=post)
+
+
+@app.route('/like/<int:post_id>')
+def like(post_id):
+    # Find the blog post with the given id and remove it from the list
+    # Redirect back to the home page
+    blog_posts.like(post_id)
+    return redirect(url_for('index'))
 
 
 if __name__ == '__main__':
