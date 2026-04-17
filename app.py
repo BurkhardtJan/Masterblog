@@ -1,43 +1,83 @@
 from flask import Flask, request, render_template, redirect, url_for
+import json
+import os
 
 app = Flask(__name__)
 
 
 class BlogPost:
-    """Class to manage blog posts"""
-    def __init__(self, posts, id=None):
-        self._posts = posts
-        self._id_list = []
-        for post in posts:
-            self._id_list.append(post['id'])
-        if id == None:
-            self._id = len(self.posts) + 1
-        else:
-            self._id = id
+    """Manage blog posts in JSON."""
+
+    def __init__(self, filename):
+        self.filename = filename
+        self._posts = self._load_data()
+
+    def _load_data(self):
+        """Reads data from file or returns empty"""
+        if not os.path.exists(self.filename):
+            return []
+        with open(self.filename, 'r', encoding='utf-8') as f:
+            return json.load(f)
+
+    def _save_data(self):
+        """Saves data into in JSON."""
+        with open(self.filename, 'w', encoding='utf-8') as f:
+            json.dump(self._posts, f, indent=4)
 
     @property
     def posts(self):
-        """returns list of posts"""
+        """Returns list of blog posts."""
         return self._posts
 
     def add(self, author, title, content):
-        """Adds a post"""
-        self._posts.append({"id": self._id, 'author': author, 'title': title, 'content': content})
-        self._id_list.append(self._id)
-        self._id += 1
+        """Adds and saves blog post. Sets id to max(id)+1"""
+        new_id = max([p['id'] for p in self._posts], default=0) + 1
 
-    def delete(self, id):
-        """Delets a post"""
-        post_index = self._id_list.index(id)
-        del self._id_list[post_index]
-        del self._posts[post_index]
+        new_post = {
+            "id": new_id,
+            "author": author,
+            "title": title,
+            "content": content
+        }
+        self._posts.append(new_post)
+        self._save_data()
+
+    def delete(self, post_id):
+        """Deletes post with selected number."""
+        self._posts = [p for p in self._posts if p['id'] != post_id]
+        self._save_data()
+
+    def fetch_post_by_id(self, post_id):
+        """Fetches blog post with selected id."""
+        for post in self._posts:
+            if post['id'] == post_id:
+                return post
+        return None
+
+    def fetch_post_position_by_id(self, post_id):
+        """Fetches blog post position with selected id."""
+        i = 0
+        for post in self._posts:
+            if post['id'] == post_id:
+                return i
+            i += 1
+        return None
+
+    def change(self, post_id, author, title, content):
+        """Changes blog post with selected id."""
+        changed_post = {
+            "id": post_id,
+            "author": author,
+            "title": title,
+            "content": content
+        }
+        print(post_id)
+        post_index = self.fetch_post_position_by_id(post_id)
+        self._posts[post_index] = changed_post
+        self._save_data()
 
 
-init_blog_posts = [
-    {"id": 1, "author": "John Doe", "title": "First Post", "content": "This is my first post."},
-    {"id": 2, "author": "Jane Doe", "title": "Second Post", "content": "This is another post."}
-]
-blog_posts = BlogPost(init_blog_posts)
+blog_posts = BlogPost("posts.json")
 
 
 @app.route('/')
@@ -68,15 +108,17 @@ def delete(post_id):
 @app.route('/update/<int:post_id>', methods=['GET', 'POST'])
 def update(post_id):
     # Fetch the blog posts from the JSON file
-    post = fetch_post_by_id(post_id)
+    post = blog_posts.fetch_post_by_id(post_id)
     if post is None:
         # Post not found
         return "Post not found", 404
 
     if request.method == 'POST':
-        pass
-    # Update the post in the JSON file
-    # Redirect back to index
+        author = request.form.get("author")
+        title = request.form.get("title")
+        content = request.form.get("content")
+        blog_posts.change(post_id, author, title, content)
+        return redirect(url_for('index'))
 
     # Else, it's a GET request
     # So display the update.html page
